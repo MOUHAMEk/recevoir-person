@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Suivi Quotidien du Personnel</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        header {
+            text-align: center;
+            font-size: 30px;
+            font-family: 'Comic Sans MS', cursive, sans-serif;
+            background-color: #3498db;
+            color: white;
+            padding: 20px;
+            text-transform: uppercase;
+            width: 100%;
+        }
+
+        main {
+            margin-top: 50px;
+            text-align: center;
+            width: 80%;
+        }
+
+        button {
+            background-color: #3498db;
+            color: white;
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 20px 0;
+        }
+
+        button:hover {
+            background-color: #2980b9;
+        }
+
+        .day-selection, .personnel-form {
+            display: none;
+            margin-top: 20px;
+        }
+
+        select, input, textarea {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #bdc3c7;
+            border-radius: 10px;
+        }
+
+        table {
+            width: 100%;
+            margin-top: 20px;
+            border-collapse: collapse;
+        }
+
+        table, th, td {
+            border: 1px solid #bdc3c7;
+        }
+
+        th, td {
+            padding: 10px;
+            text-align: center;
+        }
+
+        footer {
+            text-align: center;
+            font-size: 18px;
+            background-color: #2980b9;
+            color: white;
+            padding: 20px;
+            width: 100%;
+            margin-top: 40px;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Suivi Quotidien du Personnel</h1>
+    </header>
+
+    <main>
+        <button id="startTracking">Lancer le personnel quotidien</button>
+
+        <div id="daySelection" class="day-selection">
+            <label for="dayDropdown">Sélectionnez un jour:</label>
+            <select id="dayDropdown"></select>
+        </div>
+
+        <div id="personnelForm" class="personnel-form">
+            <h2>Remplir les informations pour le <span id="selectedDay"></span></h2>
+            <table id="personnelTable">
+                <tr>
+                    <th>Nom</th>
+                    <th>Poste</th>
+                    <th>Nombre</th>
+                    <th>Présent</th>
+                    <th>Observations</th>
+                </tr>
+            </table>
+            <button id="addRow">Ajouter une ligne</button>
+            <button id="sendData">Envoyer</button>
+        </div>
+    </main>
+
+    <footer>
+        MArisk
+    </footer>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
+        import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCOA0a_rjXqY99KXyyuHEiPOJDGGapZQUo",
+            authDomain: "suivi-49954.firebaseapp.com",
+            databaseURL: "https://suivi-49954-default-rtdb.firebaseio.com",
+            projectId: "suivi-49954",
+            storageBucket: "suivi-49954.appspot.com",
+            messagingSenderId: "141836603566",
+            appId: "1:141836603566:web:aaff934468238d958cdd3f",
+            measurementId: "G-3CMYEPPYK8"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        const days = [
+            ...Array(31).keys()
+        ].map(i => `Août ${i + 1}`).concat([...Array(30).keys()].map(i => `Septembre ${i + 1}`));
+
+        document.getElementById("startTracking").addEventListener("click", function() {
+            document.getElementById("daySelection").style.display = "block";
+            const dayDropdown = document.getElementById("dayDropdown");
+            dayDropdown.innerHTML = `<option value="" disabled selected>Choisir un jour...</option>`;
+            days.forEach(day => {
+                const option = document.createElement("option");
+                option.value = day;
+                option.textContent = day;
+                dayDropdown.appendChild(option);
+            });
+        });
+
+        document.getElementById("dayDropdown").addEventListener("change", function() {
+            const selectedDay = this.value;
+            document.getElementById("selectedDay").textContent = selectedDay;
+            document.getElementById("personnelForm").style.display = "block";
+        });
+
+        document.getElementById("addRow").addEventListener("click", function() {
+            const table = document.getElementById("personnelTable");
+            const row = table.insertRow();
+            row.innerHTML = `
+                <td><input type="text" placeholder="Nom"></td>
+                <td><input type="text" placeholder="Poste"></td>
+                <td><input type="number" placeholder="Nombre"></td>
+                <td><input type="checkbox"></td>
+                <td><textarea placeholder="Observations"></textarea></td>
+            `;
+        });
+
+        document.getElementById("sendData").addEventListener("click", function() {
+            const selectedDay = document.getElementById("selectedDay").textContent;
+            const table = document.getElementById("personnelTable");
+            const data = [];
+            
+            for (let i = 1; i < table.rows.length; i++) { // Start from 1 to skip the header row
+                const row = table.rows[i];
+                const rowData = {
+                    nom: row.cells[0].children[0].value,
+                    poste: row.cells[1].children[0].value,
+                    nombre: row.cells[2].children[0].value,
+                    present: row.cells[3].children[0].checked,
+                    observations: row.cells[4].children[0].value
+                };
+                data.push(rowData);
+            }
+
+            set(ref(db, 'days/' + selectedDay), data)
+                .then(() => alert("Données envoyées avec succès!"))
+                .catch(error => alert("Erreur lors de l'envoi: " + error.message));
+        });
+    </script>
+
+</body>
+</html>
